@@ -35,9 +35,9 @@ NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 DHTesp dhtSensor;
 DynamicJsonDocument doc (1024); //tamanho do doc do json
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(15, 4, 16);
-char topic[]= "teste"; // topico MQTT
-char topic1[]= "teste1"; // topico MQTT
-char topic2[]= "permissao"; // topico MQTT
+char topic[]= "teste";          // topico MQTT
+char topic1[]= "teste1";        // topico MQTT
+char topic2[]= "permissao";     // topico MQTT
 char topic3[]= "testeCallback"; // topico MQTT
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
