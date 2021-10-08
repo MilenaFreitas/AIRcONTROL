@@ -54,10 +54,10 @@ struct tm data; //armazena data
 char data_formatada[64];
 char hora_formatada[64];
 bool tensaoPin=false;
-const int dhtPin1=27;
-const int pirPin1=14; 
-const int con=12;
-const int eva=13;
+const int dhtPin1=32;
+const int pirPin1=33; 
+const int con=25;
+const int eva=26;
 const int sensorTensao=23;
 bool novaTemp = false;
 int tIdeal;
