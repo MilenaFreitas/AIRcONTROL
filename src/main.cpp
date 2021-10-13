@@ -41,13 +41,12 @@ char topic2[]= "permissao";     // topico MQTT
 char topic3[]= "testeCallback"; // topico MQTT
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
-unsigned long tempo = 1000*60*15; // 15 min
+unsigned long tempo = 1000*60*1; // 15 min
 unsigned long ultimoGatilho = millis()+tempo;
 IPAddress ip=WiFi.localIP();
 
 int tempAtual=0;
 int tempAntiga=0;
-int movimento=0;
 bool mov=false;
 bool tasksAtivo = true;
 struct tm data; //armazena data 
@@ -56,11 +55,11 @@ char hora_formatada[64];
 bool tensaoPin=false;
 const int dhtPin1=32;
 const int pirPin1=33; 
-const int con=25;
+const int con=25;  //vermelha
 const int eva=26;
 const int sensorTensao=23;
 bool novaTemp = false;
-int tIdeal;
+int tIdeal=24;
 int Hdes=20; //desliga 8 da noite
 int Hliga=07;//liga 7 da manha
 int rede;
@@ -211,7 +210,7 @@ void arLiga(){
   digitalWrite(con, 1);
   digitalWrite(eva, 1);
 
-  if(tempAtual >= (tIdeal+2)){ //quente
+  if(tempAtual>=(tIdeal+2)){ //quente
 		if(digitalRead(eva)==1){
 			digitalWrite(con, 1);
       Serial.println("condensadora ligada");
@@ -220,7 +219,7 @@ void arLiga(){
       digitalWrite(eva, 1);
       Serial.println("condensadora ligada");
 		}			
-	} else if(tempAtual <= (tIdeal-2)){ //frio
+	} else if(tempAtual<=(tIdeal-2)){ //frio
     digitalWrite(con, 0);
     digitalWrite(eva, 1);
     Serial.print("condensadora desligada");	
@@ -293,7 +292,9 @@ void payloadMQTT (){
   datahora();
   u8x8.clear();
   int tensao=digitalRead(sensorTensao);
+  int movimento=digitalRead(pirPin1);
   time_t tt=time(NULL);
+  Serial.println(tt);
   // String payload = "{\"local\":";
   // payload += "\"SalaTransmisssor\"";
   // payload += ",";
@@ -368,7 +369,6 @@ void setup(){
   tempTicker.start();
   u8x8.begin();
   u8x8.clear();
-  movimento = digitalRead(pirPin1);
   datahora();
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
@@ -386,9 +386,5 @@ void loop(){
   tempTicker.update();
   tickerpin.update();
   payloadMQTT();
-  String payload1= "{\"teste 1\"";
-  payload1 += "\"teste mqtt\"";
-  payload1 +="}";
-  client.publish (topic2, (char*) payload1.c_str());
   delay(5000);
 }

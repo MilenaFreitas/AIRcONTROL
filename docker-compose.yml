@@ -40,3 +40,5 @@ services:
 
       volumes: 
         - './docker/node-red-pasta:/data'
+        
+      restart: unless-stopped
