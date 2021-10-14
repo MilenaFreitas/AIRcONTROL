@@ -20,12 +20,12 @@
 #define DEVICE_TYPE "ESP32"
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
-#define PUBLISH_INTERVAL 1000*60*10 //intervalo de 10 min para publicar temperatura
+#define PUBLISH_INTERVAL 10000 //intervalo de 5 min para publicar temperatura
 
-uint64_t chipid = ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
-uint16_t chip = (uint16_t)(chipid >> 32);
+uint64_t chipid=ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
+uint16_t chip=(uint16_t)(chipid >> 32);
 char DEVICE_ID[23];
-char an = snprintf(DEVICE_ID, 23, "biit%04X%08X", chip, (uint32_t)chipid); // PEGA IP
+char an=snprintf(DEVICE_ID, 23, "biit%04X%08X", chip, (uint32_t)chipid); // PEGA IP
 String mac;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -35,19 +35,18 @@ NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 DHTesp dhtSensor;
 DynamicJsonDocument doc (1024); //tamanho do doc do json
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(15, 4, 16);
-char topic[]= "teste";          // topico MQTT
-char topic1[]= "teste1";        // topico MQTT
-char topic2[]= "permissao";     // topico MQTT
-char topic3[]= "testeCallback"; // topico MQTT
+char topic[]="teste";          // topico MQTT
+char topic1[]="teste1";        // topico MQTT
+char topic2[]="permissao";     // topico MQTT
+char topic3[]="testeCallback"; // topico MQTT
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
-unsigned long tempo = 1000*60*1; // 15 min
+unsigned long tempo=1000*60*10; // 15 min
 unsigned long ultimoGatilho = millis()+tempo;
 IPAddress ip=WiFi.localIP();
 
 int tempAtual=0;
 int tempAntiga=0;
-bool mov=false;
 bool tasksAtivo = true;
 struct tm data; //armazena data 
 char data_formatada[64];
@@ -58,14 +57,14 @@ const int pirPin1=33;
 const int con=25;  //vermelha
 const int eva=26;
 const int sensorTensao=23;
-bool novaTemp = false;
+bool novaTemp=false;
 int tIdeal=24;
 int Hdes=20; //desliga 8 da noite
 int Hliga=07;//liga 7 da manha
 int rede;
 String comando;
-unsigned long previousMillis2 = 0;
-const long intervalo = 10000;
+unsigned long previousMillis2=0;
+const long intervalo=10000;
 ////////////////////////////////////////////////////////////////
 void callback(char* topicc, byte* payload, unsigned int length){
    if(topic3){ //pega comando via MQTT
@@ -178,7 +177,6 @@ void sensorTemp(void *pvParameters){
   vTaskDelay (pdMS_TO_TICKS(500));
 }
 void IRAM_ATTR mudaStatusPir(){
-  mov=true;
   ultimoGatilho = millis()+tempo; //
 }
 void pegaTemp() {
@@ -186,7 +184,7 @@ void pegaTemp() {
     xTaskResumeFromISR (retornoTemp);
   }
 }
-void publish (){
+void publish(){
   if (tempAntiga != tempAtual){
     // nova temperatura
     tempAntiga=tempAtual;
@@ -203,58 +201,10 @@ void publish (){
 void Tensao(){
   tensaoPin=true;
 }
-void arLiga(){
-   String hora;
-  hora= data.tm_hour;
-  //liga ar
-  digitalWrite(con, 1);
-  digitalWrite(eva, 1);
-
-  if(tempAtual>=(tIdeal+2)){ //quente
-		if(digitalRead(eva)==1){
-			digitalWrite(con, 1);
-      Serial.println("condensadora ligada");
-		} else {
-      digitalWrite(con, 1);
-      digitalWrite(eva, 1);
-      Serial.println("condensadora ligada");
-		}			
-	} else if(tempAtual<=(tIdeal-2)){ //frio
-    digitalWrite(con, 0);
-    digitalWrite(eva, 1);
-    Serial.print("condensadora desligada");	
-	} 
-  vTaskDelay(500);
-}
-void verificaDia(void *pvParameters){
-  while(1){ 
-    int Hora = data.tm_hour;
-    int Minutos	=	data.tm_min;
-    int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana!=6 || data_semana!=0){
-      //se n for sabado nem domingo 
-      if(Hora>=Hliga){
-        //esta no horario de ligar
-        if(ultimoGatilho>millis()){
-          //tem movimento
-          //LIGADO
-          arLiga();
-          Serial.println("estou dentro do horario");
-        } else if(ultimoGatilho<millis()){
-          //não tem movimento
-          digitalWrite(con, 0);
-          digitalWrite(eva, 0);
-        }
-      }
-    }  
-  vTaskDelay(pdMS_TO_TICKS(500));
-  }
-}
 void perguntaMQTT(){
   int Hora = data.tm_hour;
-  int Minutos	=	data.tm_min;
   int data_semana = data.tm_wday; //devolve em numero
-  if(data_semana==6 || data_semana==4 || Hora<=Hliga || Hora>=Hdes){
+  if(data_semana==6 || data_semana==0 || Hora<=Hliga || Hora>=Hdes){
     //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
     //se tiver movimento
     if(ultimoGatilho>millis()){
@@ -280,6 +230,55 @@ void perguntaMQTT(){
     }
   }
 }
+void arLiga(){
+   String hora;
+  hora= data.tm_hour;
+  //liga ar
+  if(tempAtual>=(tIdeal+2)){ //quente
+    if(digitalRead(eva)==1){
+      digitalWrite(con, 1);
+      Serial.println("condensadora ligada");
+    } else {
+      digitalWrite(con, 1);
+      digitalWrite(eva, 1);
+      Serial.println("condensadora ligada");
+    }			
+  } else if(tempAtual<=(tIdeal-2)){ //frio
+    digitalWrite(con, 0);
+    digitalWrite(eva, 1);
+    Serial.print("condensadora desligada");	
+  } else if(tempAtual==tIdeal){
+    digitalWrite(con, 0);
+    digitalWrite(eva, 1);
+    Serial.print("temp ideal, condensadora desligada");	
+  }
+  novaTemp=0;
+  vTaskDelay(5000);
+}
+void verificaDia(void *pvParameters){
+  while(1){ 
+    int Hora = data.tm_hour;
+    int Minutos	=	data.tm_min;
+    int data_semana = data.tm_wday; //devolve em numero
+    if(data_semana!=6 || data_semana!=0){
+      //se n for sabado nem domingo 
+      if(Hora>=Hliga){
+        //esta no horario de ligar
+        if(ultimoGatilho>millis()){
+          //tem movimento
+          //LIGADO
+          arLiga();
+          Serial.println("estou dentro do horario");
+        } else if(ultimoGatilho<millis()){
+          //não tem movimento
+          digitalWrite(con, 0);
+          digitalWrite(eva, 0);
+        }
+      }
+    }  
+  vTaskDelay(pdMS_TO_TICKS(500));
+  }
+}
 void PinConfig () {
   // config das portas i/o
   pinMode(dhtPin1, INPUT);
@@ -294,34 +293,6 @@ void payloadMQTT (){
   int tensao=digitalRead(sensorTensao);
   int movimento=digitalRead(pirPin1);
   time_t tt=time(NULL);
-  Serial.println(tt);
-  // String payload = "{\"local\":";
-  // payload += "\"SalaTransmisssor\"";
-  // payload += ",";
-  // payload += "\"hora\":";
-  // payload += tt;
-  // payload += ",";
-  // payload += "\"temp\":";
-  // payload += tempAtual;
-  // payload += ",";
-  // payload += "\"movimento\":";
-  // payload += movimento;
-  // payload += ",";
-  // payload += "\"tensao\":";
-  // payload += tensao;
-  // payload += ",";
-  // payload += "\"ip\":";
-  // payload +="\"";
-  // payload += ip.toString();
-  // payload +="\"";
-  // payload += ",";
-  // payload += "\"mac\":";
-  // payload +="\"";
-  // payload += DEVICE_ID;
-  // payload +="\"";
-  // payload += "}";
-  // client.publish (topic, (char*) payload.c_str());
-
   StaticJsonDocument<256> doc;
   doc["local"] = "Porta-Transmissor";
   doc["ip"] = ip.toString();
@@ -334,10 +305,6 @@ void payloadMQTT (){
   serializeJson(doc, buffer);
   client.publish(topic, buffer);
   Serial.println(buffer);
-
-  novaTemp=false;
-  tensaoPin=false; 
-  mov=false;
 }
 Ticker tickerpin(publish, PUBLISH_INTERVAL);
 Ticker tempTicker(pegaTemp, 10000);
@@ -386,5 +353,6 @@ void loop(){
   tempTicker.update();
   tickerpin.update();
   payloadMQTT();
+  perguntaMQTT();
   delay(5000);
 }
