@@ -20,7 +20,7 @@
 #define DEVICE_TYPE "ESP32"
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
-#define PUBLISH_INTERVAL 1000*60*10 //intervalo de 5 min para publicar temperatura
+#define PUBLISH_INTERVAL 1000*60*1//intervalo de 5 min para publicar temperatura
 
 uint64_t chipid=ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip=(uint16_t)(chipid >> 32);
@@ -55,7 +55,7 @@ bool tensaoPin=false;
 bool novaTemp=false;
 int tIdeal=24;
 int Hdes=20; //desliga 8 da noite
-int Hliga=11;//liga 7 da manha
+int Hliga=07;//liga 7 da manha
 int rede;
 String comando;
 unsigned long previousMillis=0;
@@ -73,6 +73,8 @@ void callback(char* topicc, byte* payload, unsigned int length){
     Serial.println("ENTROU NO LOOP CALLBACK");
     for(int i=0; i<length;i++){
       comando=(char)payload[i]; //comando abre porta via mqtt
+    }
+    if(comando=="1"){
       Serial.println(comando);
     }
   }
