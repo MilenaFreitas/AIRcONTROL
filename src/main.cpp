@@ -20,7 +20,7 @@
 #define DEVICE_TYPE "ESP32"
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
-#define PUBLISH_INTERVAL 10000 //intervalo de 5 min para publicar temperatura
+#define PUBLISH_INTERVAL 1000*60*10 //intervalo de 5 min para publicar temperatura
 
 uint64_t chipid=ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip=(uint16_t)(chipid >> 32);
@@ -41,7 +41,7 @@ char topic2[]="permissao";     // topico MQTT
 char topic3[]="testeCallback"; // topico MQTT
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
-unsigned long tempo=1000*60*10; // 15 min
+unsigned long tempo=1000*60*1; // verifica movimento a cada 15 min
 unsigned long ultimoGatilho = millis()+tempo;
 IPAddress ip=WiFi.localIP();
 
@@ -52,25 +52,28 @@ struct tm data; //armazena data
 char data_formatada[64];
 char hora_formatada[64];
 bool tensaoPin=false;
+bool novaTemp=false;
+int tIdeal=24;
+int Hdes=20; //desliga 8 da noite
+int Hliga=11;//liga 7 da manha
+int rede;
+String comando;
+unsigned long previousMillis=0;
+const long intervalo=1000*60*1; //1 min
+int vez=0;
+//=============
 const int dhtPin1=32;
 const int pirPin1=33; 
 const int con=25;  //vermelha
 const int eva=26;
 const int sensorTensao=23;
-bool novaTemp=false;
-int tIdeal=24;
-int Hdes=20; //desliga 8 da noite
-int Hliga=07;//liga 7 da manha
-int rede;
-String comando;
-unsigned long previousMillis2=0;
-const long intervalo=10000;
 ////////////////////////////////////////////////////////////////
 void callback(char* topicc, byte* payload, unsigned int length){
    if(topic3){ //pega comando via MQTT
     Serial.println("ENTROU NO LOOP CALLBACK");
     for(int i=0; i<length;i++){
       comando=(char)payload[i]; //comando abre porta via mqtt
+      Serial.println(comando);
     }
   }
 }
@@ -158,11 +161,11 @@ void redee(){
 }
 void tentaReconexao(){ //roda assincrona no processador 0
   unsigned long currentMillis = millis();
-  if (currentMillis-previousMillis2<= intervalo) { //a cada 5min tenta reconectar
+  if (currentMillis-previousMillis<= intervalo) { //a cada 5min tenta reconectar
     Serial.print("*************************");
     Serial.print("TENTA RECONEXAO");
     Serial.println("***********************");
-    previousMillis2 = currentMillis;
+    previousMillis=currentMillis;
     iniciaWifi();
     ntp.forceUpdate();
   }
@@ -174,7 +177,7 @@ void sensorTemp(void *pvParameters){
     tasksAtivo=false;
     vTaskSuspend (NULL);
   }
-  vTaskDelay (pdMS_TO_TICKS(500));
+  vTaskDelay (pdMS_TO_TICKS(1000));
 }
 void IRAM_ATTR mudaStatusPir(){
   ultimoGatilho = millis()+tempo; //
@@ -201,35 +204,6 @@ void publish(){
 void Tensao(){
   tensaoPin=true;
 }
-void perguntaMQTT(){
-  int Hora = data.tm_hour;
-  int data_semana = data.tm_wday; //devolve em numero
-  if(data_semana==6 || data_semana==0 || Hora<=Hliga || Hora>=Hdes){
-    //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
-    //se tiver movimento
-    if(ultimoGatilho>millis()){
-      while(1){
-        Serial.println("entrou para a parte que pergunta ao MQTT");
-        StaticJsonDocument<256> doc;
-        doc["perguntaMQTT"] = "Liga ar?";
-        char buffer3[256];
-        serializeJson(doc, buffer3);
-        client.publish(topic3, buffer3);
-        Serial.println(buffer3);
-        if(comando=="1"){
-          //pode ligar o ar 
-          Serial.println("liga o ar pelo MQTT");
-          Serial.println(comando);
-          break;
-        } else if(comando=="0"){
-          Serial.println("nao liga o ar pelo MQTT");
-          Serial.println(comando);
-          break;
-        }
-      }
-    }
-  }
-}
 void arLiga(){
    String hora;
   hora= data.tm_hour;
@@ -246,11 +220,11 @@ void arLiga(){
   } else if(tempAtual<=(tIdeal-2)){ //frio
     digitalWrite(con, 0);
     digitalWrite(eva, 1);
-    Serial.print("condensadora desligada");	
+    Serial.println("condensadora desligada");	
   } else if(tempAtual==tIdeal){
     digitalWrite(con, 0);
     digitalWrite(eva, 1);
-    Serial.print("temp ideal, condensadora desligada");	
+    Serial.println("temp ideal, condensadora desligada");	
   }
   novaTemp=0;
   vTaskDelay(5000);
@@ -276,7 +250,7 @@ void verificaDia(void *pvParameters){
         }
       }
     }  
-  vTaskDelay(pdMS_TO_TICKS(500));
+  vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 void PinConfig () {
@@ -286,6 +260,36 @@ void PinConfig () {
   pinMode(sensorTensao, INPUT_PULLUP);
   pinMode(eva, OUTPUT);
   pinMode(con, OUTPUT);
+}
+void perguntaMQTT(){
+  int Hora = data.tm_hour;
+  int data_semana = data.tm_wday; //devolve em numero
+  if(data_semana==6 || data_semana==0 || Hora<=Hliga || Hora>=Hdes){
+    //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
+    //se tiver movimento
+    vez=vez+1;
+    if(vez==1){
+      Serial.println("entrou para a parte que pergunta ao MQTT");
+      StaticJsonDocument<256> doc;
+      doc["perguntaMQTT"] = "Liga ar?";
+      char buffer3[256];
+      serializeJson(doc, buffer3);
+      client.publish(topic3, buffer3);
+      Serial.println(buffer3);
+    }
+    if(ultimoGatilho>millis()){
+      if(comando=="1"){
+        //pode ligar o ar 
+        Serial.println("liga o ar pelo MQTT");
+        Serial.println(comando);
+      } else if(comando=="0"){
+        Serial.println("nao liga o ar pelo MQTT");
+        Serial.println(comando);
+      }
+    }
+  } else {
+    vez=0;
+  }
 }
 void payloadMQTT (){ 
   datahora();
@@ -307,7 +311,7 @@ void payloadMQTT (){
   Serial.println(buffer);
 }
 Ticker tickerpin(publish, PUBLISH_INTERVAL);
-Ticker tempTicker(pegaTemp, 10000);
+Ticker tempTicker(pegaTemp, 2000);
 void setup(){
   Serial.begin (115200);
   iniciaWifi();
@@ -328,7 +332,6 @@ void setup(){
   PinConfig();
   dhtSensor.setup(dhtPin1, DHTesp::DHT11);
   xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 1, &retornoTemp, 0);
-  vTaskDelay (pdMS_TO_TICKS(500));
   xTaskCreatePinnedToCore (verificaDia, "arliga", 10000, NULL, 1, NULL, 0);
   attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
   attachInterrupt (digitalPinToInterrupt(sensorTensao), Tensao, CHANGE);

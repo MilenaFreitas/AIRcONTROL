@@ -47,8 +47,8 @@
         "keyname": "",
         "dburl": "",
         "usetls": false,
-        "x": 150,
-        "y": 60,
+        "x": 90,
+        "y": 40,
         "wires": [
             []
         ]
@@ -65,8 +65,8 @@
         "nl": false,
         "rap": true,
         "rh": 0,
-        "x": 130,
-        "y": 140,
+        "x": 150,
+        "y": 100,
         "wires": [
             [
                 "0b64d81110533f4c"
@@ -85,8 +85,8 @@
         "nl": false,
         "rap": true,
         "rh": 0,
-        "x": 130,
-        "y": 220,
+        "x": 150,
+        "y": 180,
         "wires": [
             [
                 "ae0185a162676c6b"
@@ -106,8 +106,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 430,
-        "y": 180,
+        "x": 450,
+        "y": 140,
         "wires": []
     },
     {
@@ -123,8 +123,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 430,
-        "y": 260,
+        "x": 450,
+        "y": 220,
         "wires": []
     },
     {
@@ -139,8 +139,8 @@
         "nl": false,
         "rap": true,
         "rh": 0,
-        "x": 140,
-        "y": 300,
+        "x": 160,
+        "y": 260,
         "wires": [
             [
                 "bda3e4d652214b05"
@@ -160,8 +160,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 430,
-        "y": 340,
+        "x": 450,
+        "y": 300,
         "wires": []
     },
     {
@@ -178,8 +178,8 @@
         "correl": "",
         "expiry": "",
         "broker": "00df11dbf86dc40f",
-        "x": 440,
-        "y": 500,
+        "x": 460,
+        "y": 460,
         "wires": []
     },
     {
@@ -198,9 +198,9 @@
         "onceDelay": "2",
         "topic": "",
         "payload": "1",
-        "payloadType": "num",
-        "x": 150,
-        "y": 460,
+        "payloadType": "str",
+        "x": 170,
+        "y": 420,
         "wires": [
             [
                 "1c922bdbf3a62ed3"
@@ -220,8 +220,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 430,
-        "y": 420,
+        "x": 450,
+        "y": 380,
         "wires": []
     },
     {
@@ -236,8 +236,8 @@
         "nl": false,
         "rap": true,
         "rh": 0,
-        "x": 150,
-        "y": 380,
+        "x": 170,
+        "y": 340,
         "wires": [
             [
                 "38832848a334918a"
@@ -258,8 +258,8 @@
         "correl": "",
         "expiry": "",
         "broker": "00df11dbf86dc40f",
-        "x": 440,
-        "y": 580,
+        "x": 460,
+        "y": 540,
         "wires": []
     },
     {
@@ -279,8 +279,8 @@
         "topic": "",
         "payload": "0",
         "payloadType": "num",
-        "x": 150,
-        "y": 540,
+        "x": 170,
+        "y": 500,
         "wires": [
             [
                 "58f1fb870a119074"
