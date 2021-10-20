@@ -7,6 +7,13 @@
         "info": ""
     },
     {
+        "id": "5416dfdda6591aa9",
+        "type": "tab",
+        "label": "Flow 4",
+        "disabled": false,
+        "info": ""
+    },
+    {
         "id": "00df11dbf86dc40f",
         "type": "mqtt-broker",
         "name": "",
@@ -33,33 +40,12 @@
         "sessionExpiry": ""
     },
     {
-        "id": "19680345c7c4bc51",
-        "type": "aedes broker",
-        "z": "052d8ead13f842fa",
-        "name": "",
-        "mqtt_port": 1883,
-        "mqtt_ws_bind": "port",
-        "mqtt_ws_port": "",
-        "mqtt_ws_path": "",
-        "cert": "",
-        "key": "",
-        "certname": "",
-        "keyname": "",
-        "dburl": "",
-        "usetls": false,
-        "x": 90,
-        "y": 40,
-        "wires": [
-            []
-        ]
-    },
-    {
         "id": "e287c9595642ef85",
         "type": "mqtt in",
         "z": "052d8ead13f842fa",
         "name": "",
         "topic": "teste",
-        "qos": "2",
+        "qos": "0",
         "datatype": "auto",
         "broker": "00df11dbf86dc40f",
         "nl": false,
@@ -198,7 +184,7 @@
         "onceDelay": "2",
         "topic": "",
         "payload": "1",
-        "payloadType": "str",
+        "payloadType": "num",
         "x": 170,
         "y": 420,
         "wires": [
@@ -285,6 +271,122 @@
             [
                 "58f1fb870a119074"
             ]
+        ]
+    },
+    {
+        "id": "25b4a3612978e5e7",
+        "type": "aedes broker",
+        "z": "052d8ead13f842fa",
+        "name": "",
+        "mqtt_port": "1",
+        "mqtt_ws_bind": "port",
+        "mqtt_ws_port": "",
+        "mqtt_ws_path": "",
+        "cert": "",
+        "key": "",
+        "certname": "",
+        "keyname": "",
+        "dburl": "",
+        "usetls": false,
+        "x": 110,
+        "y": 20,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "4d71bcb2b73876a0",
+        "type": "mqtt in",
+        "z": "5416dfdda6591aa9",
+        "name": "",
+        "topic": "status",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "00df11dbf86dc40f",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "x": 150,
+        "y": 100,
+        "wires": [
+            [
+                "f0f957f7730c14ee"
+            ]
+        ]
+    },
+    {
+        "id": "6dbb55740b50db8f",
+        "type": "mqtt in",
+        "z": "5416dfdda6591aa9",
+        "name": "",
+        "topic": "mqttemperatura",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "00df11dbf86dc40f",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "x": 180,
+        "y": 180,
+        "wires": [
+            [
+                "600ac42b5089dba3"
+            ]
+        ]
+    },
+    {
+        "id": "f0f957f7730c14ee",
+        "type": "debug",
+        "z": "5416dfdda6591aa9",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 450,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "600ac42b5089dba3",
+        "type": "debug",
+        "z": "5416dfdda6591aa9",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 450,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "6a2916988572e8f3",
+        "type": "aedes broker",
+        "z": "5416dfdda6591aa9",
+        "name": "",
+        "mqtt_port": 1883,
+        "mqtt_ws_bind": "port",
+        "mqtt_ws_port": "",
+        "mqtt_ws_path": "",
+        "cert": "",
+        "key": "",
+        "certname": "",
+        "keyname": "",
+        "dburl": "",
+        "usetls": false,
+        "x": 110,
+        "y": 40,
+        "wires": [
+            []
         ]
     }
 ]
