@@ -55,7 +55,7 @@ bool tensaoPin=false;
 bool novaTemp=false;
 int tIdeal=24;
 int Hdes=20; //desliga 8 da noite
-int Hliga=07;//liga 7 da manha
+int Hliga=10;//liga 7 da manha
 int rede;
 String comando;
 unsigned long previousMillis=0;
@@ -263,37 +263,7 @@ void PinConfig () {
   pinMode(eva, OUTPUT);
   pinMode(con, OUTPUT);
 }
-void perguntaMQTT(){
-  int Hora = data.tm_hour;
-  int data_semana = data.tm_wday; //devolve em numero
-  if(data_semana==6 || data_semana==0 || Hora<=Hliga || Hora>=Hdes){
-    //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
-    //se tiver movimento
-    vez=vez+1;
-    if(vez==1){
-      Serial.println("entrou para a parte que pergunta ao MQTT");
-      StaticJsonDocument<256> doc;
-      doc["perguntaMQTT"] = "Liga ar?";
-      char buffer3[256];
-      serializeJson(doc, buffer3);
-      client.publish(topic3, buffer3);
-      Serial.println(buffer3);
-    }
-    if(ultimoGatilho>millis()){
-      if(comando=="1"){
-        //pode ligar o ar 
-        Serial.println("liga o ar pelo MQTT");
-        Serial.println(comando);
-      } else if(comando=="0"){
-        Serial.println("nao liga o ar pelo MQTT");
-        Serial.println(comando);
-      }
-    }
-  } else {
-    vez=0;
-  }
-}
-void payloadMQTT (){ 
+void payloadMQTT(){ 
   datahora();
   u8x8.clear();
   int tensao=digitalRead(sensorTensao);
@@ -312,6 +282,41 @@ void payloadMQTT (){
   client.publish(topic, buffer);
   Serial.println(buffer);
 }
+void perguntaMQTT(){  
+    int Hora = data.tm_hour;
+    int data_semana = data.tm_wday; //devolve em numero
+    if(data_semana==6 || data_semana==0 || Hora<=Hliga || Hora>=Hdes){
+      //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
+      //se tiver movimento
+      vez=vez+1;
+      if(vez==1){
+        Serial.println("entrou para a parte que pergunta ao MQTT");
+        StaticJsonDocument<256> doc;
+        doc["perguntaMQTT"] = "Liga ar?";
+        char buffer3[256];
+        serializeJson(doc, buffer3);
+        client.publish("permissao", buffer3);
+        Serial.println(buffer3);
+      }
+      if(comando=="1"){
+        while(ultimoGatilho>millis()){   //enquanto tiver movimento vai rodar 
+          //pode ligar o ar 
+          Serial.print("liga o ar pelo MQTT");
+          Serial.println(comando);
+          arLiga();
+          Serial.println("fica rodando no whilee");
+          payloadMQTT();
+          delay(5000);
+        } 
+      } else if(comando=="0"){
+        Serial.println("nao liga o ar pelo MQTT");
+        Serial.println(comando);
+      }
+    } else {
+      vez=0;
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
+}
 Ticker tickerpin(publish, PUBLISH_INTERVAL);
 Ticker tempTicker(pegaTemp, 2000);
 void setup(){
@@ -323,8 +328,8 @@ void setup(){
   ntp.begin ();
   ntp.forceUpdate();
   if (!ntp.forceUpdate ()){
-      Serial.println ("Erro ao carregar a hora");
-      delay (1000);
+    Serial.println ("Erro ao carregar a hora");
+     delay (1000);
   } else {
     timeval tv; //define a estrutura da hora 
     tv.tv_sec = ntp.getEpochTime(); //segundos
@@ -335,6 +340,7 @@ void setup(){
   dhtSensor.setup(dhtPin1, DHTesp::DHT11);
   xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 1, &retornoTemp, 0);
   xTaskCreatePinnedToCore (verificaDia, "arliga", 10000, NULL, 1, NULL, 0);
+  //xTaskCreatePinnedToCore (perguntaMQTT, "callback", 10000, NULL, 2, NULL, 0);
   attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
   attachInterrupt (digitalPinToInterrupt(sensorTensao), Tensao, CHANGE);
   tickerpin.start();
