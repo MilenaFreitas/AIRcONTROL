@@ -3,14 +3,14 @@
         "id": "052d8ead13f842fa",
         "type": "tab",
         "label": "Flow 1",
-        "disabled": false,
+        "disabled": true,
         "info": ""
     },
     {
         "id": "5416dfdda6591aa9",
         "type": "tab",
         "label": "Flow 4",
-        "disabled": true,
+        "disabled": false,
         "info": ""
     },
     {
@@ -168,8 +168,8 @@
         "tosidebar": true,
         "console": false,
         "tostatus": false,
-        "complete": "true",
-        "targetType": "full",
+        "complete": "payload",
+        "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
         "x": 460,
@@ -257,9 +257,7 @@
         "x": 110,
         "y": 20,
         "wires": [
-            [
-                "7b55732db3dc3b7f"
-            ]
+            []
         ]
     },
     {
@@ -356,23 +354,6 @@
         "wires": [
             []
         ]
-    },
-    {
-        "id": "7b55732db3dc3b7f",
-        "type": "debug",
-        "z": "052d8ead13f842fa",
-        "name": "",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 430,
-        "y": 20,
-        "wires": []
     },
     {
         "id": "7b6dbea544b15054",
