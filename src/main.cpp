@@ -33,17 +33,21 @@ WebServer server(80);
 WiFiUDP udp;
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 DHTesp dhtSensor;
-DynamicJsonDocument doc (1024); //tamanho do doc do json
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(15, 4, 16);
-char topic[]="teste";          // topico MQTT
-char topic1[]="teste1";        // topico MQTT
-char topic2[]="permissao";     // topico MQTT
-char topic3[]="testeCallback"; // topico MQTT
+char topic1[]= "status";          // topico MQTT
+char topic2[]= "mqttemperatura";  
+char topic3[]= "memoria";  
+char topic4[]= "tempideal";
+char topic5[]= "permissao";
+char topic6[]= "permissaoResposta";
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
-unsigned long tempo=1000*60*15; // verifica movimento a cada 15 min
-unsigned long ultimoGatilho = millis()+tempo;
 IPAddress ip=WiFi.localIP();
+unsigned long tempo=1000*60*15; // verifica movimento a cada 15 min
+const long intervalo=300000; //se tiver sem rede espera 5 min para tentar de novo
+unsigned long ultimoGatilho = millis()+tempo;
+unsigned long previousMillis=0;
+unsigned long previousMillis1=0;
 
 int tempAtual=0;
 int tempAntiga=0;
@@ -51,17 +55,17 @@ bool tasksAtivo = true;
 struct tm data; //armazena data 
 char data_formatada[64];
 char hora_formatada[64];
-bool tensaoPin=false;
-bool novaTemp=false;
-int tIdeal=24;
-int Hdes=20; //desliga 8 da noite
-int Hliga=07;//liga 7 da manha
+int movimento=0;
+int tIdeal;
+int Hdes=19; //desliga 8 da noite
+int Hliga=7;//liga 7 da manha
 int rede;
 String comando;
-unsigned long previousMillis=0;
-unsigned long previousMillis1=0;
-const long intervalo=300000; //se tiver sem rede espera 5 min para tentar de novo
+
 int vez=0;
+int vez2=0;
+std::string msg;
+std::string msg3;
 //=============
 const int dhtPin1=32;
 const int pirPin1=33; 
@@ -69,14 +73,31 @@ const int con=25;  //vermelha
 const int eva=26;
 ////////////////////////////////////////////////////////////////
 void callback(char* topicc, byte* payload, unsigned int length){
-   if(topic3){ //pega comando via MQTT
-    Serial.println("ENTROU NO LOOP CALLBACK");
-    for(int i=0; i<length;i++){
-      comando=(char)payload[i]; //comando abre porta via mqtt
+  //{"agenda":{"diaSemana":2,"horaLiga":7,"horaDesliga":19},"tempIdeal":24}
+  String topicStr = topicc;
+  if(topicStr=="memoria"){ 
+    Serial.println("ENTROU NO CALLBACK");
+    Serial.print(topicc);
+    Serial.print(": ");
+    for (int i = 0; i < length; i++){
+      Serial.print((char)payload[i]);
     }
-    if(comando=="1"){
-      Serial.println(comando);
+    Serial.println();
+    // StaticJsonDocument<512> docdoc;
+    // deserializeJson(docdoc, payloadTotal);
+    // const char* agenda = docdoc["agenda"];
+    // Serial.println(agenda);
+    // const char* tempIdeal1 = docdoc["tempIdeal"];
+    // Serial.println(tempIdeal1);
+  } else if(topicStr = "permissaoResposta"){
+    Serial.println("ENTROU NO CALLBACK");
+    Serial.print(topicc);
+    Serial.print(": ");
+    for (int i = 0; i < length; i++){
+      Serial.print((char)payload[i]);
+      comando=(char)payload[i];
     }
+    Serial.println();
   }
 }
 void conectaMQTT(){
@@ -85,11 +106,13 @@ void conectaMQTT(){
     Serial.println("conectando...");
     if (client.connect("ESP322")){
       Serial.println("CONECTADO! :)");
-      client.publish ("teste", "hello word");
-      client.subscribe (topic);   //se inscreve no topico a ser usado  
+      client.publish ("teste", "hello word"); 
       client.subscribe (topic1);
       client.subscribe (topic2);
       client.subscribe (topic3);
+      client.subscribe (topic4);
+      client.subscribe (topic5);
+      client.subscribe (topic6);
     } else {
       Serial.println("Falha na conexao");
       Serial.print(client.state());
@@ -118,13 +141,10 @@ void datahora(){
 }
 void dadosEEPROM(){
   //DEFINE OS DADOS EMERGENCIAIS DA EPROOM 
-  if(EEPROM.read(0) != 24) {
-    EEPROM.write(0, 24);  //escreve 24 no dress=0
-  } else if(EEPROM.read(1) != 19){
-    EEPROM.write(1, 19);  //escreve 19 no dress=1
-  } else if(EEPROM.read(2) != 7){
-    EEPROM.write(2, 7);  //escreve 7 no dress=2
-  }
+  if(EEPROM.read(0) != tIdeal){
+    EEPROM.write(0, tIdeal);  //escreve tempIdeal no dress=0 vindo do mqtt
+    Serial.println("ESCREVEU NA EEPROM");
+  } 
 }
 void iniciaWifi(){
   int cont=0;
@@ -154,11 +174,8 @@ void redee(){
   } else if(rede==0) { //n esta conectado a rede
     //protocolo offline
     Serial.println("rede 0");
-    EEPROM.begin(EEPROM_SIZE);
     dadosEEPROM();
-    // tIdeal=EEPROM.read(0);
-    // Hdes=EEPROM.read(1);
-    // Hliga=EEPROM.read(2);
+    tIdeal=EEPROM.read(0);
   }
 }
 void tentaReconexao(){ //roda assincrona no processador 0
@@ -178,8 +195,8 @@ void sensorTemp(void *pvParameters){
     tempAtual = dhtSensor.getTemperature();
     tasksAtivo=false;
     vTaskSuspend (NULL);
+    vTaskDelay(pdMS_TO_TICKS(60000));
   }
-  vTaskDelay (pdMS_TO_TICKS(1000));
 }
 void IRAM_ATTR mudaStatusPir(){
   ultimoGatilho = millis()+tempo; //
@@ -190,46 +207,115 @@ void pegaTemp() {
   }
 }
 void publish(){
-  if (tempAntiga != tempAtual){
+ if(tempAtual>50){
+    tempAtual=tempAntiga;
+  }else if (tempAntiga != tempAtual){
     // nova temperatura
     tempAntiga=tempAtual;
-    if(tempAtual>50){
-      novaTemp=0;
-    } else {
-      novaTemp=1;
-    }
-  } else {
-    // temperatura igual
-    novaTemp=0;
-  }
+  }  
 }
-void Tensao(){
-  tensaoPin=true;
+void payloadMQTT(){ 
+  datahora();
+  u8x8.clear();
+  time_t tt=time(NULL);
+  StaticJsonDocument<256> doc;
+  doc["local"] = "Redação";
+  doc["ip"] = ip.toString();
+  doc["mac"] = mac;
+  doc["hora"]=tt;
+  doc["temperatura"]=tempAtual;
+  doc["movimento"]=movimento; 
+  doc["evaporadora"]=!(digitalRead(eva));
+  doc["condensadora"]=!(digitalRead(con));
+  char buffer1[256];
+  serializeJson(doc, buffer1);
+  client.publish(topic1, buffer1);
+  movimento=0;
 }
 void arLiga(){
-   String hora;
+  String hora;
   hora= data.tm_hour;
   //liga ar
+  digitalWrite(eva, 0);
+  Serial.println(tempAtual);
+  Serial.println(tIdeal);
   if(tempAtual>=(tIdeal+2)){ //quente
-    if(digitalRead(eva)==1){
-      digitalWrite(con, 1);
+    if(digitalRead(eva)==0){
+      digitalWrite(con, 0);
       Serial.println("condensadora ligada");
     } else {
-      digitalWrite(con, 1);
-      digitalWrite(eva, 1);
+      digitalWrite(con, 0);
+      digitalWrite(eva, 0);
       Serial.println("condensadora ligada");
-    }			
+    }	
+    StaticJsonDocument<256> doc;
+    doc["statusAR"]= "ligado"; 
+    doc["condensadora"]=!digitalRead(con);
+    doc["evaporadora"]=!digitalRead(eva);
+    char buffer[256];
+    serializeJson(doc, buffer);
+    client.publish(topic2, buffer);
+    Serial.println(buffer);	
+      
   } else if(tempAtual<=(tIdeal-2)){ //frio
-    digitalWrite(con, 0);
-    digitalWrite(eva, 1);
+    digitalWrite(con, 1);
+    digitalWrite(eva, 0);
     Serial.println("condensadora desligada");	
+    StaticJsonDocument<256> doc;
+    doc["statusAR"]="desligado"; 
+    doc["condensadora"]=!digitalRead(con);
+    doc["evaporadora"]=!digitalRead(eva);
+    char buffer[256];
+    serializeJson(doc, buffer);
+    client.publish(topic2, buffer);
+
   } else if(tempAtual==tIdeal){
-    digitalWrite(con, 0);
-    digitalWrite(eva, 1);
-    Serial.println("temp ideal, condensadora desligada");	
+    Serial.println("temp ideal");	
+    StaticJsonDocument<256> doc;
+    doc["statusAR"]="temp ideal"; 
+    doc["condensadora"]=!digitalRead(con);
+    doc["evaporadora"]=!digitalRead(eva);
+    char buffer[256];
+    serializeJson(doc, buffer);
+    client.publish(topic2, buffer);
   }
-  novaTemp=0;
-  vTaskDelay(5000);
+  delay(30000);
+}
+void perguntaMQTT(){  
+    int Hora = data.tm_hour;
+    int data_semana = data.tm_wday; //devolve em numero
+    if(data_semana==6 || data_semana==0 ||(Hora<=Hliga && Hora>=Hdes)){
+      //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
+      //se tiver movimento
+      vez=vez+1;
+      if(vez==1){
+        Serial.println("entrou para a parte que pergunta ao MQTT");
+        StaticJsonDocument<256> doc;
+        doc["perguntaMQTT"] = "Liga ar?";
+        char buffer3[256];
+        serializeJson(doc, buffer3);
+        client.publish("permissao", buffer3);
+        Serial.println(buffer3);
+      }else if(comando=="1"){
+        while(ultimoGatilho>millis()){   //enquanto tiver movimento vai rodar 
+          //pode ligar o ar 
+          Serial.print("liga o ar pelo MQTT");
+          Serial.println(comando);
+          arLiga();
+          Serial.println("fica rodando no whilee");
+          payloadMQTT();
+          delay(5000);
+          if(data_semana!=6 || data_semana!=0|| (Hora>=Hliga && Hora<=Hdes)){
+            vez=0;
+            break;
+          }
+        } 
+      } else if(comando=="0"){
+        Serial.println("nao liga o ar pelo MQTT");
+        Serial.println(comando);
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
 }
 void verificaDia(void *pvParameters){
   while(1){ 
@@ -250,9 +336,15 @@ void verificaDia(void *pvParameters){
           digitalWrite(con, 0);
           digitalWrite(eva, 0);
         }
+      } else {
+        //se fora do horario
+        perguntaMQTT();
       }
-    }  
-  vTaskDelay(pdMS_TO_TICKS(1000));
+    } else{
+      //se fora do dia
+      perguntaMQTT();
+    }
+    vTaskDelay(60000);
   }
 }
 void PinConfig () {
@@ -261,62 +353,6 @@ void PinConfig () {
 	pinMode(pirPin1, INPUT_PULLUP);
   pinMode(eva, OUTPUT);
   pinMode(con, OUTPUT);
-}
-void payloadMQTT(){ 
-  datahora();
-  u8x8.clear();
-  int movimento=digitalRead(pirPin1);
-  time_t tt=time(NULL);
-  StaticJsonDocument<256> doc;
-  doc["local"] = "Porta-Transmissor";
-  doc["ip"] = ip.toString();
-  doc["mac"] = mac;
-  doc["hora"]=tt;
-  doc["Temperatura"]=tempAtual;
-  doc["movimento"]=movimento; 
-  doc["evaporadora"]=digitalRead(eva);
-  doc["condensadora"]=digitalRead(con);
-  char buffer[256];
-  serializeJson(doc, buffer);
-  client.publish(topic, buffer);
-  Serial.println(buffer);
-}
-void perguntaMQTT(){  
-    int Hora = data.tm_hour;
-    int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana==6 || data_semana==0 ||(Hora<=Hliga && Hora>=Hdes)){
-      //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
-      //se tiver movimento
-      vez=vez+1;
-      if(vez==1){
-        Serial.println("entrou para a parte que pergunta ao MQTT");
-        StaticJsonDocument<256> doc;
-        doc["perguntaMQTT"] = "Liga ar?";
-        char buffer3[256];
-        serializeJson(doc, buffer3);
-        client.publish("permissao", buffer3);
-        Serial.println(buffer3);
-      }
-      if(comando=="1"){
-        while(ultimoGatilho>millis()){   //enquanto tiver movimento vai rodar 
-          //pode ligar o ar 
-          Serial.print("liga o ar pelo MQTT");
-          Serial.println(comando);
-          arLiga();
-          Serial.println("fica rodando no whilee");
-          payloadMQTT();
-          delay(5000);
-          if(data_semana!=6 || data_semana!=0 || (Hora>=Hliga && Hora<=Hdes)){}
-          break;
-        } 
-      } else if(comando=="0"){
-        Serial.println("nao liga o ar pelo MQTT");
-        Serial.println(comando);
-      }
-    } else {
-      vez=0;
-    }
-    vTaskDelay(pdMS_TO_TICKS(1000));
 }
 Ticker tickerpin(publish, PUBLISH_INTERVAL);
 Ticker tempTicker(pegaTemp, 2000);
@@ -339,35 +375,49 @@ void setup(){
   redee();  //define as variaveis
   PinConfig();
   dhtSensor.setup(dhtPin1, DHTesp::DHT11);
-  xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 1, &retornoTemp, 0);
+  xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 1000, NULL, 1, &retornoTemp, 0);
   xTaskCreatePinnedToCore (verificaDia, "arliga", 10000, NULL, 1, NULL, 0);
-  //xTaskCreatePinnedToCore (perguntaMQTT, "callback", 10000, NULL, 2, NULL, 0);
   attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
   tickerpin.start();
   tempTicker.start();
-  u8x8.begin();
-  u8x8.clear();
+
   datahora();
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
+  tIdeal=24;
 }
 void loop(){
   datahora();
   server.handleClient();
   reconectaMQTT();
-  if(tempAtual<50){  //prevenção de erros na leitura do sensor
+  if(tempAtual>50){  //prevenção de erros na leitura do sensor
     publishNewState=false;
-  }
-  if(rede==0){
+  }else if(rede==0){
     tentaReconexao();
   }
-  tempTicker.update();
-  tickerpin.update();
   unsigned long currentMillis1 = millis();
   if ((currentMillis1-previousMillis1)>= intervalo){
     Serial.println("entro no tempo do millis");
     payloadMQTT();
     previousMillis1=currentMillis1;
+  }else if(ultimoGatilho>millis() && movimento==1){
+    //tem movimento na sala
+    payloadMQTT();
+  }else if(vez2==0){
+    //pede a tideal ao mqtt quando liga pela primeira vez
+    StaticJsonDocument<256> doc5;
+    doc5["local"] = "Redacao-01";
+    doc5["mac"] =  "1";
+    doc5["etapa"] =  "ligado";
+    char buffer[256];
+    serializeJson(doc5, buffer);
+    client.publish("tempideal", buffer);
+    Serial.println("mandou");
+    EEPROM.begin(EEPROM_SIZE);
+    dadosEEPROM(); //escreve na eeprom o valor
+    vez2=1;
   }
+  tempTicker.update();
+  tickerpin.update();
   delay(10000);
 }
