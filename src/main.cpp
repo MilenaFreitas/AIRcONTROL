@@ -56,7 +56,7 @@ struct tm data; //armazena data
 char data_formatada[64];
 char hora_formatada[64];
 int movimento=0;
-int tIdeal;
+int tIdeal=24;
 int Hdes=19; //desliga 8 da noite
 int Hliga=7;//liga 7 da manha
 int rede;
@@ -380,11 +380,9 @@ void setup(){
   attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
   tickerpin.start();
   tempTicker.start();
-
   datahora();
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
-  tIdeal=24;
 }
 void loop(){
   datahora();
