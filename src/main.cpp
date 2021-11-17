@@ -44,7 +44,7 @@ bool publishNewState = false;
 TaskHandle_t retornoTemp;
 IPAddress ip=WiFi.localIP();
 unsigned long tempo=1000*60*15; // verifica movimento a cada 15 min
-const long intervalo=300000; //se tiver sem rede espera 5 min para tentar de novo
+const long intervalo=60000; //se tiver sem rede espera 1 min para tentar de novo
 unsigned long ultimoGatilho = millis()+tempo;
 unsigned long previousMillis=0;
 unsigned long previousMillis1=0;
@@ -89,16 +89,17 @@ void callback(char* topicc, byte* payload, unsigned int length){
     // Serial.println(agenda);
     // const char* tempIdeal1 = docdoc["tempIdeal"];
     // Serial.println(tempIdeal1);
-  } else if(topicStr = "permissaoResposta"){
-    Serial.println("ENTROU NO CALLBACK");
-    Serial.print(topicc);
-    Serial.print(": ");
-    for (int i = 0; i < length; i++){
-      Serial.print((char)payload[i]);
-      comando=(char)payload[i];
-    }
-    Serial.println();
   }
+  //  else if(topicStr = "permissaoResposta"){
+  //   Serial.println("ENTROU NO CALLBACK");
+  //   Serial.print(topicc);
+  //   Serial.print(": ");
+  //   for (int i = 0; i < length; i++){
+  //     Serial.print((char)payload[i]);
+  //     comando=(char)payload[i];
+  //   }
+  //   Serial.println();
+  // }
 }
 void conectaMQTT(){
   //Estabelece conexao c MQTT/WIFI
@@ -174,8 +175,10 @@ void redee(){
   } else if(rede==0) { //n esta conectado a rede
     //protocolo offline
     Serial.println("rede 0");
-    dadosEEPROM();
+    EEPROM.begin(EEPROM_SIZE);
+    
     tIdeal=EEPROM.read(0);
+
   }
 }
 void tentaReconexao(){ //roda assincrona no processador 0
@@ -284,7 +287,7 @@ void arLiga(){
 void perguntaMQTT(){  
     int Hora = data.tm_hour;
     int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana==6 || data_semana==0 ||(Hora<=Hliga && Hora>=Hdes)){
+    if(data_semana==3 || data_semana==0 ||(Hora<=Hliga && Hora>=Hdes)){
       //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
       //se tiver movimento
       vez=vez+1;
@@ -294,7 +297,7 @@ void perguntaMQTT(){
         doc["perguntaMQTT"] = "Liga ar?";
         char buffer3[256];
         serializeJson(doc, buffer3);
-        client.publish("permissao", buffer3);
+        client.publish(topic5, buffer3);
         Serial.println(buffer3);
       }else if(comando=="1"){
         while(ultimoGatilho>millis()){   //enquanto tiver movimento vai rodar 
@@ -322,8 +325,8 @@ void verificaDia(void *pvParameters){
     int Hora = data.tm_hour;
     int Minutos	=	data.tm_min;
     int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana!=6 || data_semana!=0){
-      //se n for sabado nem domingo 
+    if(data_semana==3){
+      //se n for sabado nem domingo data_semana!=6 || data_semana!=0
       if(Hora>=Hliga){
         //esta no horario de ligar
         if(ultimoGatilho>millis()){
@@ -388,14 +391,15 @@ void loop(){
   datahora();
   server.handleClient();
   reconectaMQTT();
-  if(tempAtual>50){  //prevenção de erros na leitura do sensor
-    publishNewState=false;
-  }else if(rede==0){
+  if(WL_DISCONNECTED || WL_CONNECTION_LOST){
+    rede=0;
+  }
+  else if(rede==0){
     tentaReconexao();
   }
   unsigned long currentMillis1 = millis();
   if ((currentMillis1-previousMillis1)>= intervalo){
-    Serial.println("entro no tempo do millis");
+    Serial.println("entro no tempo do millis do payload");
     payloadMQTT();
     previousMillis1=currentMillis1;
   }else if(ultimoGatilho>millis() && movimento==1){
