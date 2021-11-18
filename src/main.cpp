@@ -89,17 +89,16 @@ void callback(char* topicc, byte* payload, unsigned int length){
     // Serial.println(agenda);
     // const char* tempIdeal1 = docdoc["tempIdeal"];
     // Serial.println(tempIdeal1);
+  }else if(topicStr = "permissaoResposta"){
+    Serial.println("ENTROU NO CALLBACK");
+    Serial.print(topicc);
+    Serial.print(": ");
+    for (int i = 0; i < length; i++){
+      Serial.print((char)payload[i]);
+      comando=(char)payload[i];
+    }
+    Serial.println();
   }
-  //  else if(topicStr = "permissaoResposta"){
-  //   Serial.println("ENTROU NO CALLBACK");
-  //   Serial.print(topicc);
-  //   Serial.print(": ");
-  //   for (int i = 0; i < length; i++){
-  //     Serial.print((char)payload[i]);
-  //     comando=(char)payload[i];
-  //   }
-  //   Serial.println();
-  // }
 }
 void conectaMQTT(){
   //Estabelece conexao c MQTT/WIFI
@@ -287,7 +286,7 @@ void arLiga(){
 void perguntaMQTT(){  
     int Hora = data.tm_hour;
     int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana==3 || data_semana==0 ||(Hora<=Hliga && Hora>=Hdes)){
+    if(data_semana==6 || data_semana==0 ||(Hora<=Hliga && Hora>=Hdes)){
       //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
       //se tiver movimento
       vez=vez+1;
@@ -325,8 +324,8 @@ void verificaDia(void *pvParameters){
     int Hora = data.tm_hour;
     int Minutos	=	data.tm_min;
     int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana==3){
-      //se n for sabado nem domingo data_semana!=6 || data_semana!=0
+    if(data_semana!=6 || data_semana!=0){
+      //se n for sabado nem domingo 
       if(Hora>=Hliga){
         //esta no horario de ligar
         if(ultimoGatilho>millis()){
