@@ -7,11 +7,12 @@
 #include <Ticker.h>
 #include <DHtesp.h>
 #include <ArduinoJson.h>
-#include <U8x8lib.h>
 #include <ESPmDNS.h>
 #include <Update.h>
 #include <SPI.h>
 #include <WiFiClient.h>
+#include <OneWire.h>  
+#include <DallasTemperature.h>
 
 #define EEPROM_SIZE 1024
 #define WIFI_NOME "Metropole" //rede wifi específica
@@ -21,6 +22,7 @@
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
 #define PUBLISH_INTERVAL 1000*60*1//intervalo de 5 min para publicar temperatura
+#define ONE_WIRE_BUS 25 //pino no esp
 
 uint64_t chipid=ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip=(uint16_t)(chipid >> 32);
@@ -33,7 +35,8 @@ WebServer server(80);
 WiFiUDP udp;
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
 DHTesp dhtSensor;
-U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(15, 4, 16);
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensor(&oneWire);	
 char topic1[]= "status";          // topico MQTT
 char topic2[]= "mqttemperatura";  
 char topic3[]= "memoria";  
@@ -56,16 +59,21 @@ struct tm data; //armazena data
 char data_formatada[64];
 char hora_formatada[64];
 int movimento=0;
-int tIdeal=24;
-int Hdes=19; //desliga 8 da noite
-int Hliga=7;//liga 7 da manha
+
 int rede;
 String comando;
 
 int vez=0;
 int vez2=0;
 std::string msg;
+std::string msg1;
+std::string msg2;
 std::string msg3;
+std::string msg4;
+int tIdeal;
+int data_semana;
+int Hliga;
+int Hdes;
 //=============
 const int dhtPin1=32;
 const int pirPin1=33; 
@@ -81,14 +89,29 @@ void callback(char* topicc, byte* payload, unsigned int length){
     Serial.print(": ");
     for (int i = 0; i < length; i++){
       Serial.print((char)payload[i]);
+      msg += (char)payload[i];
     }
     Serial.println();
-    // StaticJsonDocument<512> docdoc;
-    // deserializeJson(docdoc, payloadTotal);
-    // const char* agenda = docdoc["agenda"];
-    // Serial.println(agenda);
-    // const char* tempIdeal1 = docdoc["tempIdeal"];
-    // Serial.println(tempIdeal1);
+    msg1= msg.substr(23,1);  //dia semana
+    Serial.print(msg1.c_str());
+    Serial.println();
+    data_semana = atoi(msg1.c_str());
+
+    msg2= msg.substr(36,1);  //hora liga
+    Serial.print(msg2.c_str());
+    Serial.println();
+    Hliga = atoi(msg2.c_str());
+
+    msg3= msg.substr(52,2);  //hora desliga
+    Serial.print(msg3.c_str());
+    Serial.println(); 
+    Hdes = atoi(msg3.c_str());
+
+    msg4= msg.substr(68,2);  //tideal
+    Serial.print(msg4.c_str());
+    Serial.println();
+    tIdeal = atoi(msg4.c_str());
+
   }else if(topicStr = "permissaoResposta"){
     Serial.println("ENTROU NO CALLBACK");
     Serial.print(topicc);
@@ -194,7 +217,8 @@ void tentaReconexao(){ //roda assincrona no processador 0
 void sensorTemp(void *pvParameters){
   Serial.println ("sensorTemp inicio do LOOP");
   while (1) {//busca temp enquanto estiver ligado
-    tempAtual = dhtSensor.getTemperature();
+    sensor.requestTemperatures(); 
+    tempAtual = sensor.getTempCByIndex(0);
     tasksAtivo=false;
     vTaskSuspend (NULL);
     vTaskDelay(pdMS_TO_TICKS(60000));
@@ -218,7 +242,6 @@ void publish(){
 }
 void payloadMQTT(){ 
   datahora();
-  u8x8.clear();
   time_t tt=time(NULL);
   StaticJsonDocument<256> doc;
   doc["local"] = "Redação";
@@ -323,8 +346,8 @@ void verificaDia(void *pvParameters){
   while(1){ 
     int Hora = data.tm_hour;
     int Minutos	=	data.tm_min;
-    int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana!=6 || data_semana!=0){
+    //int data_semana = data.tm_wday; //devolve em numero
+    if(data_semana != 6 || data_semana != 6){
       //se n for sabado nem domingo 
       if(Hora>=Hliga){
         //esta no horario de ligar
@@ -385,11 +408,13 @@ void setup(){
   datahora();
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
+  sensor.begin();	// Start up the library
 }
 void loop(){
   datahora();
   server.handleClient();
   reconectaMQTT();
+  int week = data.tm_wday; //devolve em numero
   if(WL_DISCONNECTED || WL_CONNECTION_LOST){
     rede=0;
   }
@@ -417,8 +442,16 @@ void loop(){
     EEPROM.begin(EEPROM_SIZE);
     dadosEEPROM(); //escreve na eeprom o valor
     vez2=1;
+  } else if(week != data_semana){
+    StaticJsonDocument<256> doc5;
+    doc5["local"] = "Redacao-01";
+    doc5["mac"] =  "1";
+    doc5["etapa"] =  "ligado";
+    char buffer[256];
+    serializeJson(doc5, buffer);
+    client.publish("tempideal", buffer);
   }
   tempTicker.update();
   tickerpin.update();
-  delay(10000);
+  delay(500);
 }
