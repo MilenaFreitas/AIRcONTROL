@@ -22,7 +22,7 @@
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
 #define PUBLISH_INTERVAL 1000*60*1//intervalo de 5 min para publicar temperatura
-#define ONE_WIRE_BUS 25 //pino no esp
+#define ONE_WIRE_BUS 12 //pino no esp
 
 uint64_t chipid=ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip=(uint16_t)(chipid >> 32);
@@ -59,12 +59,10 @@ struct tm data; //armazena data
 char data_formatada[64];
 char hora_formatada[64];
 int movimento=0;
-
 int rede;
 String comando;
 
 int vez=0;
-int vez2=0;
 std::string msg;
 std::string msg1;
 std::string msg2;
@@ -74,7 +72,7 @@ int tIdeal;
 int data_semana;
 int Hliga;
 int Hdes;
-//=============
+//=============================================================
 const int dhtPin1=32;
 const int pirPin1=33; 
 const int con=25;  //vermelha
@@ -167,7 +165,11 @@ void dadosEEPROM(){
   if(EEPROM.read(0) != tIdeal){
     EEPROM.write(0, tIdeal);  //escreve tempIdeal no dress=0 vindo do mqtt
     Serial.println("ESCREVEU NA EEPROM");
-  } 
+  } else if(EEPROM.read(1) != Hdes){
+    EEPROM.write(1, Hdes);
+  } else if(EEPROM.read(2) != Hliga){
+    EEPROM.write(2, Hliga);
+  }
 }
 void iniciaWifi(){
   int cont=0;
@@ -225,7 +227,8 @@ void sensorTemp(void *pvParameters){
   }
 }
 void IRAM_ATTR mudaStatusPir(){
-  ultimoGatilho = millis()+tempo; //
+  ultimoGatilho = millis()+tempo;
+  movimento=1;
 }
 void pegaTemp() {
       if (retornoTemp != NULL) {
@@ -409,6 +412,7 @@ void setup(){
   ip=WiFi.localIP(); //pega ip
   mac=DEVICE_ID;     //pega mac
   sensor.begin();	// Start up the library
+  EEPROM.begin(EEPROM_SIZE);
 }
 void loop(){
   datahora();
@@ -429,20 +433,8 @@ void loop(){
   }else if(ultimoGatilho>millis() && movimento==1){
     //tem movimento na sala
     payloadMQTT();
-  }else if(vez2==0){
-    //pede a tideal ao mqtt quando liga pela primeira vez
-    StaticJsonDocument<256> doc5;
-    doc5["local"] = "Redacao-01";
-    doc5["mac"] =  "1";
-    doc5["etapa"] =  "ligado";
-    char buffer[256];
-    serializeJson(doc5, buffer);
-    client.publish("tempideal", buffer);
-    Serial.println("mandou");
-    EEPROM.begin(EEPROM_SIZE);
-    dadosEEPROM(); //escreve na eeprom o valor
-    vez2=1;
   } else if(week != data_semana){
+    Serial.println("DIA DA SEMANAAAAAA");
     StaticJsonDocument<256> doc5;
     doc5["local"] = "Redacao-01";
     doc5["mac"] =  "1";
@@ -450,8 +442,9 @@ void loop(){
     char buffer[256];
     serializeJson(doc5, buffer);
     client.publish("tempideal", buffer);
+    dadosEEPROM(); //escreve na eeprom o valor
   }
   tempTicker.update();
   tickerpin.update();
-  delay(500);
+  delay(1000);
 }
