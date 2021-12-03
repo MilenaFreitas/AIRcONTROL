@@ -70,6 +70,7 @@ int tIdeal;
 int data_semana;
 int Hliga;
 int Hdes;
+
 //=============================================================
 const int pirPin1=33; 
 const int con=25;  
@@ -429,6 +430,5 @@ void loop(){
   tickerpin.update();
   delay(1000);
   }
-
 //mac 1 biitF4A6F9A3C9C8 redação reuniao
 //mac 2 biitD8B3F9A3C9C8 redação entrada
