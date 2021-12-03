@@ -17,7 +17,7 @@
 #define WIFI_NOME "Metropole" //rede wifi específica
 #define WIFI_SENHA "908070Radio"
 #define BROKER_MQTT "10.71.0.2"
-#define DEVICE_TYPE "AR-redacao-entrada"
+#define DEVICE_TYPE "AR-redacao-reuniao"
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
 #define PUBLISH_INTERVAL 1000*60*1//intervalo de 5 min para publicar temperatura
@@ -143,7 +143,7 @@ void conectaMQTT(){
   //Estabelece conexao c MQTT/WIFI
    if(!client.connected()){
     Serial.println("conectando...");
-    if (client.connect("AR-redacao-entrada")){
+    if (client.connect("AR-redacao-reuniao")){
       Serial.println("CONECTADO! :)");
       client.publish ("teste", "hello word"); 
       client.subscribe (topic1);
@@ -416,7 +416,7 @@ void loop(){
     payloadMQTT();
   } else if(week != data_semana && vez2==0){
     StaticJsonDocument<256> doc5;
-    doc5["local"] = "AR-redacao-entrada";
+    doc5["local"] = "AR-redacao-reuniao";
     doc5["mac"] =  mac;
     doc5["etapa"] =  "ligado";
     char buffer[256];
