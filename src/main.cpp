@@ -5,7 +5,6 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Ticker.h>
-#include <DHtesp.h>
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
 #include <Update.h>
@@ -17,12 +16,12 @@
 #define EEPROM_SIZE 1024
 #define WIFI_NOME "Metropole" //rede wifi específica
 #define WIFI_SENHA "908070Radio"
-#define BROKER_MQTT "10.71.0.132"
-#define DEVICE_TYPE "ESP32"
+#define BROKER_MQTT "10.71.0.2"
+#define DEVICE_TYPE "AR-redacao-entrada"
 #define TOKEN "ib+r)WKRvHCGjmjGQ0"
 #define ORG "n5hyok"
 #define PUBLISH_INTERVAL 1000*60*1//intervalo de 5 min para publicar temperatura
-#define ONE_WIRE_BUS 12 //pino no esp
+#define ONE_WIRE_BUS 32 //pino no esp
 
 uint64_t chipid=ESP.getEfuseMac(); // The chip ID is essentially its MAC address(length: 6 bytes).
 uint16_t chip=(uint16_t)(chipid >> 32);
@@ -34,15 +33,13 @@ PubSubClient client(espClient);
 WebServer server(80);
 WiFiUDP udp;
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
-DHTesp dhtSensor;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensor(&oneWire);	
-char topic1[]= "status";          // topico MQTT
-char topic2[]= "mqttemperatura";  
-char topic3[]= "memoria";  
-char topic4[]= "tempideal";
-char topic5[]= "permissao";
-char topic6[]= "permissaoResposta";
+char topic1[]= "status2";          // topico MQTT
+char topic3[]= "memoria2";  
+char topic4[]= "tempideal2";
+char topic5[]= "permissao2";
+char topic6[]= "permissaoResposta2";
 bool publishNewState = false; 
 TaskHandle_t retornoTemp;
 IPAddress ip=WiFi.localIP();
@@ -63,6 +60,7 @@ int rede;
 String comando;
 
 int vez=0;
+int vez2=0;
 std::string msg;
 std::string msg1;
 std::string msg2;
@@ -73,11 +71,21 @@ int data_semana;
 int Hliga;
 int Hdes;
 //=============================================================
-const int dhtPin1=32;
 const int pirPin1=33; 
-const int con=25;  //vermelha
+const int con=25;  
 const int eva=26;
 ////////////////////////////////////////////////////////////////
+void dadosEEPROM(){
+  //DEFINE OS DADOS EMERGENCIAIS DA EPROOM 
+  if(EEPROM.read(0) != tIdeal){
+    EEPROM.write(0, tIdeal);  //escreve tempIdeal no dress=0 vindo do mqtt
+    Serial.println("ESCREVEU NA EEPROM");
+  } else if(EEPROM.read(1) != Hdes){
+    EEPROM.write(1, Hdes);
+  } else if(EEPROM.read(2) != Hliga){
+    EEPROM.write(2, Hliga);
+  }
+}
 void callback(char* topicc, byte* payload, unsigned int length){
   //{"agenda":{"diaSemana":2,"horaLiga":7,"horaDesliga":19},"tempIdeal":24}
   String topicStr = topicc;
@@ -89,27 +97,36 @@ void callback(char* topicc, byte* payload, unsigned int length){
       Serial.print((char)payload[i]);
       msg += (char)payload[i];
     }
-    Serial.println();
-    msg1= msg.substr(23,1);  //dia semana
-    Serial.print(msg1.c_str());
-    Serial.println();
-    data_semana = atoi(msg1.c_str());
+    if(msg == "false"){
+      StaticJsonDocument<256> doc5;
+      doc5["status"] = "ERROR-MQTTCALLBACK";
+      char buffer[256];
+      serializeJson(doc5, buffer);
+      client.publish(topic4, buffer);
+      dadosEEPROM();
+      Serial.println("false MQTT");
+      Serial.println(buffer);
+    } else {
+      Serial.println("TA NO NORMAAAAAAL");
+      msg1= msg.substr(23,1);  //dia semana
+    
+      data_semana = atoi(msg1.c_str());
 
-    msg2= msg.substr(36,1);  //hora liga
-    Serial.print(msg2.c_str());
-    Serial.println();
-    Hliga = atoi(msg2.c_str());
+      msg2= msg.substr(36,1);  //hora liga
+      Serial.print(msg2.c_str());
+      Serial.println();
+      Hliga = atoi(msg2.c_str());
 
-    msg3= msg.substr(52,2);  //hora desliga
-    Serial.print(msg3.c_str());
-    Serial.println(); 
-    Hdes = atoi(msg3.c_str());
+      msg3= msg.substr(52,2);  //hora desliga
+      Serial.print(msg3.c_str());
+      Serial.println(); 
+      Hdes = atoi(msg3.c_str());
 
-    msg4= msg.substr(68,2);  //tideal
-    Serial.print(msg4.c_str());
-    Serial.println();
-    tIdeal = atoi(msg4.c_str());
-
+      msg4= msg.substr(68,2);  //tideal
+      Serial.print(msg4.c_str());
+      Serial.println();
+      tIdeal = atoi(msg4.c_str());
+    }
   }else if(topicStr = "permissaoResposta"){
     Serial.println("ENTROU NO CALLBACK");
     Serial.print(topicc);
@@ -125,11 +142,10 @@ void conectaMQTT(){
   //Estabelece conexao c MQTT/WIFI
    if(!client.connected()){
     Serial.println("conectando...");
-    if (client.connect("ESP322")){
+    if (client.connect("AR-redacao-entrada")){
       Serial.println("CONECTADO! :)");
       client.publish ("teste", "hello word"); 
       client.subscribe (topic1);
-      client.subscribe (topic2);
       client.subscribe (topic3);
       client.subscribe (topic4);
       client.subscribe (topic5);
@@ -160,17 +176,6 @@ void datahora(){
     ntp.forceUpdate();
   }	
 }
-void dadosEEPROM(){
-  //DEFINE OS DADOS EMERGENCIAIS DA EPROOM 
-  if(EEPROM.read(0) != tIdeal){
-    EEPROM.write(0, tIdeal);  //escreve tempIdeal no dress=0 vindo do mqtt
-    Serial.println("ESCREVEU NA EEPROM");
-  } else if(EEPROM.read(1) != Hdes){
-    EEPROM.write(1, Hdes);
-  } else if(EEPROM.read(2) != Hliga){
-    EEPROM.write(2, Hliga);
-  }
-}
 void iniciaWifi(){
   int cont=0;
   WiFi.begin(WIFI_NOME, WIFI_SENHA); 
@@ -196,13 +201,13 @@ void redee(){
   if(rede==1){  //está conectado
     //protocolo online via MQTT
     Serial.println("rede 1");
-  } else if(rede==0) { //n esta conectado a rede
+  } else if(rede==0){ //n esta conectado a rede
     //protocolo offline
     Serial.println("rede 0");
     EEPROM.begin(EEPROM_SIZE);
-    
     tIdeal=EEPROM.read(0);
-
+    Hdes=EEPROM.read(1);
+    Hliga=EEPROM.read(2);
   }
 }
 void tentaReconexao(){ //roda assincrona no processador 0
@@ -247,7 +252,7 @@ void payloadMQTT(){
   datahora();
   time_t tt=time(NULL);
   StaticJsonDocument<256> doc;
-  doc["local"] = "Redação";
+  doc["local"] = "AR-redacao-entrada";
   doc["ip"] = ip.toString();
   doc["mac"] = mac;
   doc["hora"]=tt;
@@ -275,37 +280,14 @@ void arLiga(){
       digitalWrite(con, 0);
       digitalWrite(eva, 0);
       Serial.println("condensadora ligada");
-    }	
-    StaticJsonDocument<256> doc;
-    doc["statusAR"]= "ligado"; 
-    doc["condensadora"]=!digitalRead(con);
-    doc["evaporadora"]=!digitalRead(eva);
-    char buffer[256];
-    serializeJson(doc, buffer);
-    client.publish(topic2, buffer);
-    Serial.println(buffer);	
-      
+    }		
   } else if(tempAtual<=(tIdeal-2)){ //frio
     digitalWrite(con, 1);
     digitalWrite(eva, 0);
     Serial.println("condensadora desligada");	
-    StaticJsonDocument<256> doc;
-    doc["statusAR"]="desligado"; 
-    doc["condensadora"]=!digitalRead(con);
-    doc["evaporadora"]=!digitalRead(eva);
-    char buffer[256];
-    serializeJson(doc, buffer);
-    client.publish(topic2, buffer);
 
   } else if(tempAtual==tIdeal){
     Serial.println("temp ideal");	
-    StaticJsonDocument<256> doc;
-    doc["statusAR"]="temp ideal"; 
-    doc["condensadora"]=!digitalRead(con);
-    doc["evaporadora"]=!digitalRead(eva);
-    char buffer[256];
-    serializeJson(doc, buffer);
-    client.publish(topic2, buffer);
   }
   delay(30000);
 }
@@ -350,7 +332,7 @@ void verificaDia(void *pvParameters){
     int Hora = data.tm_hour;
     int Minutos	=	data.tm_min;
     //int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana != 6 || data_semana != 6){
+    if(data_semana != 0 || data_semana != 6){
       //se n for sabado nem domingo 
       if(Hora>=Hliga){
         //esta no horario de ligar
@@ -377,13 +359,12 @@ void verificaDia(void *pvParameters){
 }
 void PinConfig () {
   // config das portas i/o
-  pinMode(dhtPin1, INPUT);
 	pinMode(pirPin1, INPUT_PULLUP);
   pinMode(eva, OUTPUT);
   pinMode(con, OUTPUT);
 }
 Ticker tickerpin(publish, PUBLISH_INTERVAL);
-Ticker tempTicker(pegaTemp, 2000);
+Ticker tempTicker(pegaTemp, 5000);
 void setup(){
   Serial.begin (115200);
   iniciaWifi();
@@ -402,7 +383,6 @@ void setup(){
   }
   redee();  //define as variaveis
   PinConfig();
-  dhtSensor.setup(dhtPin1, DHTesp::DHT11);
   xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 1000, NULL, 1, &retornoTemp, 0);
   xTaskCreatePinnedToCore (verificaDia, "arliga", 10000, NULL, 1, NULL, 0);
   attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
@@ -433,18 +413,22 @@ void loop(){
   }else if(ultimoGatilho>millis() && movimento==1){
     //tem movimento na sala
     payloadMQTT();
-  } else if(week != data_semana){
-    Serial.println("DIA DA SEMANAAAAAA");
+  } else if(week != data_semana && vez2==0){
     StaticJsonDocument<256> doc5;
-    doc5["local"] = "Redacao-01";
-    doc5["mac"] =  "1";
+    doc5["local"] = "AR-redacao-entrada";
+    doc5["mac"] =  mac;
     doc5["etapa"] =  "ligado";
     char buffer[256];
     serializeJson(doc5, buffer);
-    client.publish("tempideal", buffer);
+    client.publish (topic4, buffer);
     dadosEEPROM(); //escreve na eeprom o valor
+    Serial.println("mandou mqtt");
+    vez2++;
   }
   tempTicker.update();
   tickerpin.update();
   delay(1000);
-}
+  }
+
+//mac 1 biitF4A6F9A3C9C8 redação reuniao
+//mac 2 biitD8B3F9A3C9C8 redação entrada
