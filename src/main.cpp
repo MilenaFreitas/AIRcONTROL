@@ -90,7 +90,7 @@ void dadosEEPROM(){
 void callback(char* topicc, byte* payload, unsigned int length){
   //{"agenda":{"diaSemana":2,"horaLiga":7,"horaDesliga":19},"tempIdeal":24}
   String topicStr = topicc;
-  if(topicStr=="memoria"){ 
+  if(topicStr=="memoria2"){ 
     Serial.println("ENTROU NO CALLBACK");
     Serial.print(topicc);
     Serial.print(": ");
@@ -128,7 +128,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
       Serial.println();
       tIdeal = atoi(msg4.c_str());
     }
-  }else if(topicStr = "permissaoResposta"){
+  }else if(topicStr = "permissaoResposta2"){
     Serial.println("ENTROU NO CALLBACK");
     Serial.print(topicc);
     Serial.print(": ");
@@ -229,7 +229,7 @@ void sensorTemp(void *pvParameters){
     tempAtual = sensor.getTempCByIndex(0);
     tasksAtivo=false;
     vTaskSuspend (NULL);
-    vTaskDelay(pdMS_TO_TICKS(60000));
+    vTaskDelay(pdMS_TO_TICKS(30000));
   }
 }
 void IRAM_ATTR mudaStatusPir(){
@@ -242,7 +242,7 @@ void pegaTemp() {
   }
 }
 void publish(){
- if(tempAtual>50){
+ if(tempAtual>50 || tempAtual < 0){
     tempAtual=tempAntiga;
   }else if (tempAntiga != tempAtual){
     // nova temperatura
@@ -253,7 +253,7 @@ void payloadMQTT(){
   datahora();
   time_t tt=time(NULL);
   StaticJsonDocument<256> doc;
-  doc["local"] = "AR-redacao-entrada";
+  doc["local"] = "AR-redacao-reuniao";
   doc["ip"] = ip.toString();
   doc["mac"] = mac;
   doc["hora"]=tt;
@@ -365,7 +365,7 @@ void PinConfig () {
   pinMode(con, OUTPUT);
 }
 Ticker tickerpin(publish, PUBLISH_INTERVAL);
-Ticker tempTicker(pegaTemp, 5000);
+Ticker tempTicker(pegaTemp, 1000);
 void setup(){
   Serial.begin (115200);
   iniciaWifi();
@@ -430,6 +430,5 @@ void loop(){
   tickerpin.update();
   delay(1000);
   }
-  
-//mac 1 biitF4A6F9A3C9C8 redação reuniao
-//mac 2 biitD8B3F9A3C9C8 redação entrada
+//mac 1 biitF4A6F9A3C9C8 redação entrada
+//mac 2 biitD8B3F9A3C9C8 redação reuniao
