@@ -44,11 +44,11 @@ bool publishNewState = false;
 TaskHandle_t retornoTemp;
 IPAddress ip=WiFi.localIP();
 unsigned long tempo=1000*60*10; // verifica movimento a cada 15 min
-const long intervalo=1000*60*1; //se tiver sem rede espera 1 min para tentar de novo
+const long intervalo=1000*60*5; //se tiver sem rede espera 1 min para tentar de novo
 unsigned long ultimoGatilho = millis()+tempo;
 unsigned long previousMillis=0;
 unsigned long previousMillis1=0;
-
+unsigned long previousMilliss=0;
 float tempAtual=0;
 struct tm data; //armazena data 
 char data_formatada[64];
@@ -222,10 +222,12 @@ void tentaReconexao(){ //roda assincrona no processador 0
     ntp.forceUpdate();
   }
 }
-void sensorTemp(void *pvParameters){
-  Serial.println ("sensorTemp inicio do LOOP");
-  while (1) {//busca temp enquanto estiver ligado
-     barramento.requestTemperatures(); 
+void sensorTemp(){
+  unsigned long currentMilliss = millis();
+  if ((currentMilliss-previousMilliss)>= (10000)){
+    Serial.println ("sensorTemp inicio do LOOP");
+    //busca temp enquanto estiver ligado
+    barramento.requestTemperatures(); 
     float temperatura = barramento.getTempC(sensor);
     Serial.print("a Temperatura é: ");
     Serial.println(temperatura);
@@ -239,11 +241,13 @@ void sensorTemp(void *pvParameters){
         tempAtual=temperatura;
       }
     }
-    vTaskDelay(pdMS_TO_TICKS(30000));
+    previousMilliss=currentMilliss;
   }
+  
 }
 void IRAM_ATTR mudaStatusPir(){
   ultimoGatilho = millis()+tempo;
+  movimento=1;
 }
 void payloadMQTT(){ 
   datahora();
@@ -268,7 +272,7 @@ void arLiga(){
   digitalWrite(eva, 0);
   Serial.println(tempAtual);
   Serial.println(tIdeal);
-  if(tempAtual>=(tIdeal+2)){ //quente
+  if(tempAtual>=(tIdeal+1)){ //quente
     if(digitalRead(eva)==0){
       digitalWrite(con, 0);
       Serial.println("condensadora ligada");
@@ -277,7 +281,7 @@ void arLiga(){
       digitalWrite(eva, 0);
       Serial.println("condensadora ligada");
     }		
-  } else if(tempAtual<=(tIdeal-2)){ //frio
+  } else if(tempAtual<=(tIdeal-1)){ //frio
     digitalWrite(con, 1);
     digitalWrite(eva, 0);
     Serial.println("condensadora desligada");	
@@ -294,8 +298,8 @@ void perguntaMQTT(){
       //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
       //se tiver movimento
       vez=vez+1;
-      digitalWrite(con, 0);
-      digitalWrite(eva, 0);
+      digitalWrite(con, 1);
+      digitalWrite(eva, 1);
       if(vez==1){
         Serial.println("entrou para a parte que pergunta ao MQTT");
         StaticJsonDocument<256> doc;
@@ -313,12 +317,14 @@ void perguntaMQTT(){
           Serial.println("fica rodando no whilee");
           payloadMQTT();
           delay(5000);
-          if(data_semana!=6 || data_semana!=0|| (Hora>=Hliga && Hora<=Hdes)){
+          if((data_semana!=6 && data_semana!=0) || (Hora>=Hliga && Hora<=Hdes)){
             vez=0;
             break;
           }
         } 
       } else if(comando=="0"){
+        digitalWrite(con, 1);
+        digitalWrite(eva, 1);
         Serial.println("nao liga o ar pelo MQTT");
         Serial.println(comando);
       }
@@ -330,7 +336,7 @@ void verificaDia(void *pvParameters){
     int Hora = data.tm_hour;
     int Minutos	=	data.tm_min;
     //int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana != 0 || data_semana != 6){
+    if(data_semana != 0 && data_semana != 6){
       //se n for sabado nem domingo 
       if(Hora>=Hliga){
         //esta no horario de ligar
@@ -341,21 +347,25 @@ void verificaDia(void *pvParameters){
           Serial.println("estou dentro do horario");
         } else if(ultimoGatilho<millis()){
           //não tem movimento
-          digitalWrite(con, 0);
-          digitalWrite(eva, 0);
+          digitalWrite(con, 1);
+          digitalWrite(eva, 1);
         }
       } else {
         //se fora do horario
+        digitalWrite(con, 1);
+        digitalWrite(eva, 1);
         perguntaMQTT();
       }
     } else{
       //se fora do dia
+      digitalWrite(con, 1);
+      digitalWrite(eva, 1);
       perguntaMQTT();
     }
     vTaskDelay(pdMS_TO_TICKS(30000));
   }
 }
-void PinConfig () {
+void PinConfig(){
   // config das portas i/o
 	pinMode(pirPin1, INPUT_PULLUP);
   pinMode(eva, OUTPUT);
@@ -379,7 +389,6 @@ void setup(){
   }
   redee();  //define as variaveis
   PinConfig();
-  xTaskCreatePinnedToCore (sensorTemp, "sensorTemp", 4000, NULL, 1, NULL, 0);
   xTaskCreatePinnedToCore (verificaDia, "arliga", 10000, NULL, 1, NULL, 0);
   attachInterrupt (digitalPinToInterrupt(pirPin1), mudaStatusPir, RISING);
   datahora();
@@ -405,9 +414,7 @@ void loop(){
     payloadMQTT();
     previousMillis1=currentMillis1;
   }
-   if(ultimoGatilho>millis()){
-    movimento=1;
-  } else if(ultimoGatilho<millis()){
+   if(ultimoGatilho<millis()){
     movimento=0;
   } 
    if(week != data_semana && vez2==0){
@@ -421,14 +428,8 @@ void loop(){
     Serial.println("mandou mqtt");
     vez2++;
   }
-  while (WiFi.status()!= WL_CONNECTED){
-    Serial.println("NAO TEM NEEET");
-    redee();
-    if(ultimoGatilho>millis()){
-      arLiga();
-    }
-  }
-  delay(1000);
+  sensorTemp();
+  delay(3000);
 }
 //mac 1 biitF4A6F9A3C9C8 redação entrada
 //mac 2 biitD8B3F9A3C9C8 redação reuniao
