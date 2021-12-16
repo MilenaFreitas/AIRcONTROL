@@ -233,12 +233,13 @@ void sensorTemp(){
     Serial.println(temperatura);
     if(temperatura>0 && temperatura<50){
       tempAtual=temperatura;
-      Serial.println(tempAtual);
       contTemp=0;
-    } else if(temperatura<0 && temperatura>50){
+    } else if(temperatura<0 || temperatura>50){
       contTemp++;
       if(contTemp==5){
         tempAtual=temperatura;
+        Serial.print("temp atual erradaa: ");
+        Serial.println(tempAtual);
       }
     }
     previousMilliss=currentMilliss;
@@ -414,10 +415,10 @@ void loop(){
     payloadMQTT();
     previousMillis1=currentMillis1;
   }
-   if(ultimoGatilho<millis()){
+  if(ultimoGatilho<millis()){
     movimento=0;
   } 
-   if(week != data_semana && vez2==0){
+  if(week != data_semana && vez2==0){
     StaticJsonDocument<256> doc5;
     doc5["local"] = "AR-redacao-reuniao";
     doc5["mac"] =  mac;
@@ -429,7 +430,11 @@ void loop(){
     vez2++;
   }
   sensorTemp();
+  Serial.print("dia da semana: ");
+  Serial.println(week);
+  Serial.print("dia da semana mqtt: ");
+  Serial.println(data_semana);
   delay(3000);
 }
-//mac 1 biitF4A6F9A3C9C8 redação entrada
-//mac 2 biitD8B3F9A3C9C8 redação reuniao
+//mac 1 biitF4A6F9A3C9C8 redação reuniao
+//mac 2 biitD8B3F9A3C9C8 redação entrada
