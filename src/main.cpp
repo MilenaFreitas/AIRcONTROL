@@ -418,7 +418,7 @@ void loop(){
   if(ultimoGatilho<millis()){
     movimento=0;
   } 
-  if(week != data_semana && vez2==0){
+  if(week != data_semana){
     StaticJsonDocument<256> doc5;
     doc5["local"] = "AR-redacao-reuniao";
     doc5["mac"] =  mac;
@@ -427,13 +427,8 @@ void loop(){
     serializeJson(doc5, buffer);
     client.publish (topic4, buffer);
     Serial.println("mandou mqtt");
-    vez2++;
   }
   sensorTemp();
-  Serial.print("dia da semana: ");
-  Serial.println(week);
-  Serial.print("dia da semana mqtt: ");
-  Serial.println(data_semana);
   delay(3000);
 }
 //mac 1 biitF4A6F9A3C9C8 redação reuniao
