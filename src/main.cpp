@@ -35,7 +35,8 @@ PubSubClient client(espClient);
 WebServer server(80);
 WiFiUDP udp;
 NTPClient ntp(udp, "a.st1.ntp.br", -3 * 3600, 60000); //Hr do Br
-char topic1[]= "status2";          // topico MQTT
+char topic1[]= "status2";  
+char topic2[]= "reset2";          // topico MQTT
 char topic3[]= "memoria2";  
 char topic4[]= "tempideal2";
 char topic5[]= "permissao2";
@@ -130,6 +131,7 @@ void callback(char* topicc, byte* payload, unsigned int length){
       tIdeal = atoi(msg4.c_str());
       dadosEEPROM(); //escreve na eeprom o valor
     }
+    topicStr="";
   }else if(topicStr = "permissaoResposta2"){
     Serial.println("ENTROU NO CALLBACK");
     Serial.print(topicc);
@@ -139,6 +141,20 @@ void callback(char* topicc, byte* payload, unsigned int length){
       comando=(char)payload[i];
     }
     Serial.println();
+    topicStr="";
+  }
+  if(topicc="reset2"){
+    Serial.println("entrou no: ");
+    Serial.println(topicc);
+    String reset;
+    for (int i = 0; i < length; i++){
+      reset=(char)payload[i];
+    }
+    if(reset=="1"){
+      Serial.println("RESERTAAAAAAAAAA");
+      ESP.restart();
+    }
+    topicStr="";
   }
 }
 void conectaMQTT(){
@@ -149,6 +165,7 @@ void conectaMQTT(){
       Serial.println("CONECTADO! :)");
       client.publish ("teste", "hello word"); 
       client.subscribe (topic1);
+      client.subscribe (topic2);
       client.subscribe (topic3);
       client.subscribe (topic4);
       client.subscribe (topic5);
