@@ -4,7 +4,6 @@
 #include <PubSubClient.h>
 #include <WiFi.h>
 #include <WebServer.h>
-#include <Ticker.h>
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
 #include <Update.h>
@@ -15,7 +14,6 @@
 #include "C:\Users\Estudio\Desktop\dados.cpp"
 
 #define EEPROM_SIZE 1024
-#define DEVICE_TYPE "AR-redacao-reuniao"
 #define PUBLISH_INTERVAL 2000//intervalo de 5 min para publicar temperatura
 OneWire pino(32);
 
@@ -341,6 +339,12 @@ void IRAM_ATTR mudaStatusPir(){
   ultimoGatilho = millis()+tempo;
   movimento=1;
 }
+void arDesliga(){
+  digitalWrite(con, 0);
+  digitalWrite(ledCon, digitalRead(con));
+  digitalWrite(eva, 0);
+  digitalWrite(ledEva, digitalRead(eva));
+}
 void payloadMQTT(){ 
   datahora();
   time_t tt=time(NULL);
@@ -392,14 +396,11 @@ void arLiga(){
 void perguntaMQTT(){  
     int Hora = data.tm_hour;
     int data_semana = data.tm_wday; //devolve em numero
-    if(data_semana==6 || data_semana==0 ||(Hora<=Hliga && Hora>=Hdes)){
+    if(data_semana==6||data_semana==0||Hora<Hliga||Hora>=Hdes){
       //se foir sabado ou domingo ou antes de 7h ou depois de 20h 
       //se tiver movimento
       vez=vez+1;
-      digitalWrite(con, 0);
-      digitalWrite(ledCon, digitalRead(con));
-      digitalWrite(eva, 0);
-      digitalWrite(ledEva, digitalRead(eva));
+      arDesliga();
       if(vez==1){
         Serial.println("entrou para a parte que pergunta ao MQTT");
         StaticJsonDocument<256> doc;
@@ -417,16 +418,13 @@ void perguntaMQTT(){
           Serial.println("fica rodando no whilee");
           payloadMQTT();
           delay(5000);
-          if((data_semana!=6 && data_semana!=0) || (Hora>=Hliga && Hora<=Hdes)){
+          if((data_semana!=6 && data_semana!=0)||(Hora>=Hliga && Hora<Hdes)){
             vez=0;
             break;
           }
         } 
       } else if(comando=="0"){
-        digitalWrite(con, 0);
-        digitalWrite(ledCon, digitalRead(con));
-        digitalWrite(eva, 0);
-        digitalWrite(ledEva, digitalRead(eva));
+        arDesliga();
         Serial.println("nao liga o ar pelo MQTT");
         Serial.println(comando);
       }
@@ -439,7 +437,7 @@ void verificaDia(void *pvParameters){
     //int data_semana = data.tm_wday; //devolve em numero
     if(data_semana != 0 && data_semana != 6){
       //se n for sabado nem domingo 
-      if(Hora>=Hliga && Hora<=Hdes){
+      if(Hora>=Hliga && Hora<Hdes){
         //esta no horario de ligar
         if(ultimoGatilho>millis()){
           //tem movimento
@@ -448,25 +446,16 @@ void verificaDia(void *pvParameters){
           Serial.println("estou dentro do horario");
         } else if(ultimoGatilho<millis()){
           //não tem movimento
-          digitalWrite(con, 0);
-          digitalWrite(ledCon, digitalRead(con));
-          digitalWrite(eva, 0);
-          digitalWrite(ledEva, digitalRead(eva));
+          arDesliga();
         }
       } else {
         //se fora do horario
-        digitalWrite(con, 0);
-        digitalWrite(ledCon, digitalRead(con));
-        digitalWrite(eva, 0);
-        digitalWrite(ledEva, digitalRead(eva));
+        arDesliga();
         perguntaMQTT();
       }
     } else{
       //se fora do dia
-      digitalWrite(con, 0);
-      digitalWrite(ledCon, digitalRead(con));
-      digitalWrite(eva, 0);
-      digitalWrite(ledEva, digitalRead(eva));
+      arDesliga();
       perguntaMQTT();
     }
     vTaskDelay(pdMS_TO_TICKS(30000));
