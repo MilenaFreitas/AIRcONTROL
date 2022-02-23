@@ -146,7 +146,7 @@ const char* serverIndex =
  "},"
  "error: function (a, b, c) {"
  "}"
- "});"
+ "});" 
  "});"
  "</script>";
 void dadosEEPROM(){
