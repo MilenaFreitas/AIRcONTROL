@@ -387,7 +387,6 @@ void arLiga(){
     digitalWrite(eva, 0);
     digitalWrite(ledEva, !digitalRead(eva));
     Serial.println("condensadora desligada");	
-
   } else if(tempAtual==tIdeal){
     Serial.println("temp ideal");	
   }
